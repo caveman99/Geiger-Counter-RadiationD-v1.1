@@ -34,8 +34,9 @@ int lastCounts = 0;
 unsigned long lastCountTime; // Time measurement
 unsigned long lastSend = 0;
 
-// set up the 'cpm' feed
+// set up the 'cpm' and 'uSV/h' feed
 AdafruitIO_Feed *cpm_io = io.feed("cpm");
+AdafruitIO_Feed *uSvH = io.feed("uSv/h");
 
 void IRAM_ATTR ISR_impulse()
 { // Captures count of events from Geiger counter board
@@ -104,6 +105,10 @@ void loop()
       Serial.print("sending -> ");
       Serial.println(cpm);
       cpm_io->save(cpm);
+
+      Serial.print("sending -> ");
+      Serial.println(microSvHour);
+      uSvH->save(microSvHour);
 
       lastSend = currentTime;
     }

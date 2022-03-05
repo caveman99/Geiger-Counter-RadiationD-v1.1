@@ -24,6 +24,8 @@
    Please use freely with attribution. Thank you!
 */
 
+#include <Arduino.h>
+
 volatile unsigned long counts = 0;                       // Tube events
 unsigned long cpm = 0;                                   // CPM
 unsigned long previousMillis;                            // Time measurement

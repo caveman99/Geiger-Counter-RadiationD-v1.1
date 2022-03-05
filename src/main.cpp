@@ -7,6 +7,7 @@
 
    Author: Andreas Spiess
    Based on initial work of Mark A. Heckler (@MkHeck, mark.heckler@gmail.com)
+   Hacked by @crazyquark for Adafruit.io
    License: MIT License
    Please use freely with attribution. Thank you!
 */

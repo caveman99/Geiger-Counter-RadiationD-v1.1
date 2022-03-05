@@ -29,6 +29,7 @@ const int inputPin = 12;
 
 volatile unsigned long counts = 0; // Tube events
 float cpm = 0;                     // CPM
+float microSvHour = 0;             // uSV/h
 int lastCounts = 0;
 unsigned long lastCountTime; // Time measurement
 unsigned long lastSend = 0;
@@ -87,16 +88,15 @@ void loop()
     Serial.print("Counts: ");
     Serial.println(counts);
     cpm = float(counts - lastCounts) / PERIOD_LOG;
+    microSvHour = cpm / 151;
     lastCounts = counts;
     lastCountTime = millis();
-
-    if (counts >= 1024)
-    {
-      lastCounts = counts = 0;
-    }
-
+    
     Serial.print("cpm: ");
     Serial.println(cpm);
+
+    Serial.print("uSV/h: ");
+    Serial.println(microSvHour);
 
     if ((currentTime - lastSend) > PERIOD_ADAFRUIT_IO * 1000)
     {

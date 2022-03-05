@@ -11,7 +11,6 @@
    Please use freely with attribution. Thank you!
 */
 
-
 #define PRINT_DEBUG_MESSAGES
 
 #include <Arduino.h>
@@ -22,24 +21,22 @@
 #include "config.h"
 
 #define WIFI_TIMEOUT_DEF 30
-#define PERIOD_LOG 5                  //Logging period 
-#define PERIOD_THINKSPEAK 60        // in seconds, >60
-
-IPAddress ip;
-
-WiFiClient client;
-
-WiFiClientSecure secure_client;
+#define PERIOD_LOG 5          // Logging period
+#define PERIOD_ADAFRUIT_IO 20 // in seconds
 
 const int inputPin = 12;
 
-volatile unsigned long counts = 0;                       // Tube events
-float cpm = 0;                                           // CPM
+volatile unsigned long counts = 0; // Tube events
+float cpm = 0;                     // CPM
 int lastCounts = 0;
-unsigned long lastCountTime;                             // Time measurement
-unsigned long lastEntryThingspeak;
+unsigned long lastCountTime; // Time measurement
+unsigned long lastSend = 0;
 
-void IRAM_ATTR ISR_impulse() { // Captures count of events from Geiger counter board
+// set up the 'cpm' feed
+AdafruitIO_Feed *cpm_io = io.feed("cpm");
+
+void IRAM_ATTR ISR_impulse()
+{ // Captures count of events from Geiger counter board
   counts++;
 }
 
@@ -50,44 +47,64 @@ void software_Reset() // Restarts program from beginning but does not reset the 
   esp_restart();
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
-  if (PERIOD_LOG > PERIOD_THINKSPEAK) {
-    Serial.println("PERIOD_THINKSPEAK has to be bigger than PERIODE_LOG");
-    while (1);
-  }
+  Serial.print("Connecting to Adafruit IO");
 
-  Serial.println("Connecting to Wi-Fi");
+  // connect to io.adafruit.com
+  io.connect();
 
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-  int wifi_loops = 0;
-  int wifi_timeout = WIFI_TIMEOUT_DEF;
-  while (WiFi.status() != WL_CONNECTED) {
-    wifi_loops++;
+  // wait for a connection
+  while (io.status() < AIO_CONNECTED)
+  {
     Serial.print(".");
     delay(500);
-    if (wifi_loops > wifi_timeout) software_Reset();
   }
+
+  // we are connected
   Serial.println();
-  Serial.println("Wi-Fi Connected");
+  Serial.println(io.statusText());
+
   pinMode(inputPin, INPUT);                            // Set pin for capturing Tube events
-  attachInterrupt(inputPin, ISR_impulse, FALLING);     // Define interrupt on falling edge
-  lastEntryThingspeak = millis();
-  lastCountTime = millis();
+  attachInterrupt(inputPin, ISR_impulse, FALLING);
   Serial.println("Initialized");
 }
 
-void loop() {
-  if (WiFi.status() != WL_CONNECTED) software_Reset();
+void loop()
+{
+  // io.run(); is required for all sketches.
+  // it should always be present at the top of your loop
+  // function. it keeps the client connected to
+  // io.adafruit.com, and processes any incoming data.
+  io.run();
 
-  if (millis() - lastCountTime > (PERIOD_LOG * 1000)) {
-    Serial.print("Counts: "); Serial.println(counts);
-    cpm = float(counts - lastCounts) / PERIOD_LOG ;
+  unsigned long currentTime = millis();
+  if (currentTime - lastCountTime > (PERIOD_LOG * 1000))
+  {
+    Serial.print("Counts: ");
+    Serial.println(counts);
+    cpm = float(counts - lastCounts) / PERIOD_LOG;
     lastCounts = counts;
     lastCountTime = millis();
 
-    Serial.print("cpm: "); Serial.println(cpm);
+    if (counts >= 1024)
+    {
+      lastCounts = counts = 0;
+    }
+
+    Serial.print("cpm: ");
+    Serial.println(cpm);
+
+    if ((currentTime - lastSend) > PERIOD_ADAFRUIT_IO * 1000)
+    {
+      // save cpm to the 'cpm' feed on Adafruit IO
+      Serial.print("sending -> ");
+      Serial.println(cpm);
+      cpm_io->save(cpm);
+
+      lastSend = currentTime;
+    }
   }
 }
